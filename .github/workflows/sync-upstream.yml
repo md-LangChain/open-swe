@@ -1,0 +1,45 @@
+# Keep this fork's main branch matched to langchain-ai/open-swe.
+# LangSmith "Automatically update Agent Server on push" then rebuilds from those pushes.
+name: Sync upstream
+
+on:
+  schedule:
+    # Every 6 hours
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fast-forward main to langchain-ai/open-swe
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/langchain-ai/open-swe.git
+          git fetch upstream main
+          BEFORE="$(git rev-parse HEAD)"
+          git checkout main
+          git reset --hard upstream/main
+          AFTER="$(git rev-parse HEAD)"
+          if [ "$BEFORE" = "$AFTER" ]; then
+            echo "Already up to date with upstream/main ($AFTER)"
+            exit 0
+          fi
+          echo "Updating $BEFORE -> $AFTER"
+          git push origin main
+          echo "Pushed upstream/main to origin/main"
