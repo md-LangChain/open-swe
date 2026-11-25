@@ -96,7 +96,7 @@ langchain-ai/open-swe  --(sync Action)-->  md-LangChain/open-swe@main
                                           backend + MDA rebuild
 ```
 
-- **Automatic:** sync workflow runs every 6 hours (and on **Actions → Sync upstream → Run workflow**)
-- **Manual:** `git fetch upstream && git reset --hard upstream/main && git push origin main`
+- **Automatic:** sync workflow runs every 6 hours (and on **Actions → Sync upstream → Run workflow**). It resets to upstream `main`, then re-applies this checklist + the sync workflow so they are not deleted.
+- **Manual:** prefer running the Action. A raw `git reset --hard upstream/main && git push` drops the fork overlay until the Action runs again.
 - Keep **backend and MDA** on the same commit when possible
 - Upstream may add required env vars; re-check INSTALLATION after large syncs

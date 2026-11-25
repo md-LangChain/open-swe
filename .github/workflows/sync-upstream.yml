@@ -1,4 +1,5 @@
-# Keep this fork's main branch matched to langchain-ai/open-swe.
+# Keep this fork's main branch matched to langchain-ai/open-swe, while
+# preserving fork-only overlay files (this workflow + LangSmith setup notes).
 # LangSmith "Automatically update Agent Server on push" then rebuilds from those pushes.
 name: Sync upstream
 
@@ -30,16 +31,42 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          OVERLAY_DIR="$(mktemp -d)"
+          mkdir -p "$OVERLAY_DIR/.github/workflows" "$OVERLAY_DIR/docs"
+          cp .github/workflows/sync-upstream.yml "$OVERLAY_DIR/.github/workflows/"
+          if [ -f docs/LANGSMITH_SETUP.md ]; then
+            cp docs/LANGSMITH_SETUP.md "$OVERLAY_DIR/docs/"
+          fi
+
           git remote add upstream https://github.com/langchain-ai/open-swe.git
           git fetch upstream main
           BEFORE="$(git rev-parse HEAD)"
+          UPSTREAM="$(git rev-parse upstream/main)"
+
           git checkout main
           git reset --hard upstream/main
-          AFTER="$(git rev-parse HEAD)"
-          if [ "$BEFORE" = "$AFTER" ]; then
-            echo "Already up to date with upstream/main ($AFTER)"
+
+          mkdir -p .github/workflows docs
+          cp "$OVERLAY_DIR/.github/workflows/sync-upstream.yml" .github/workflows/
+          if [ -f "$OVERLAY_DIR/docs/LANGSMITH_SETUP.md" ]; then
+            cp "$OVERLAY_DIR/docs/LANGSMITH_SETUP.md" docs/
+          fi
+
+          if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
+            if [ "$BEFORE" = "$(git rev-parse HEAD)" ]; then
+              echo "Already up to date with upstream/main ($UPSTREAM) and overlay"
+              exit 0
+            fi
+            # Tree matches upstream+overlay already committed as HEAD somehow; nothing to push.
+            echo "Working tree clean after reset; nothing to commit"
             exit 0
           fi
-          echo "Updating $BEFORE -> $AFTER"
+
+          git add .github/workflows/sync-upstream.yml
+          if [ -f docs/LANGSMITH_SETUP.md ]; then
+            git add docs/LANGSMITH_SETUP.md
+          fi
+          git commit -m "chore: sync upstream/main (${UPSTREAM:0:7}) and keep fork overlay"
           git push origin main
-          echo "Pushed upstream/main to origin/main"
+          echo "Synced upstream/main $UPSTREAM and re-applied fork overlay (was $BEFORE)"
